@@ -3,7 +3,7 @@
 A Soroban smart contract crowdfunding campaign with a React/Next.js frontend, deployed on Stellar Testnet.
 
 - **Smart Contract (Testnet):** `CCLJ4FEXKXEZKS6UCROBEKLIVDOPFVP6Z75QS3AV5CUS2WAM3EBQNL7W`
-- **Live Demo Link:** `PENDING_DEPLOYMENT`
+- **Live Demo Link:** https://stellar-orange-belt-crowdfund-inyxwywvi.vercel.app/
 - **Stack:** Soroban (Rust), Next.js, Tailwind CSS, `@creit.tech/stellar-wallets-kit`
 - **Wallets Supported:** Freighter, xBull, Albedo
 
