@@ -44,8 +44,9 @@ fn test_contribution_tracking() {
     let status = client.get_status();
     assert_eq!(status.get(0).unwrap(), 500);
     assert_eq!(status.get(1).unwrap(), 1000);
-    assert_eq!(status.get(2).unwrap(), 0);
+    assert_eq!(status.get(2).unwrap(), 5000);
     assert_eq!(status.get(3).unwrap(), 0);
+    assert_eq!(status.get(4).unwrap(), 0);
 }
 
 #[test]
@@ -85,7 +86,7 @@ fn test_claim_after_target_met_and_deadline_passed() {
     assert_eq!(claimed, 500);
 
     let status = client.get_status();
-    assert_eq!(status.get(3).unwrap(), 1);
+    assert_eq!(status.get(4).unwrap(), 1);
 }
 
 #[test]

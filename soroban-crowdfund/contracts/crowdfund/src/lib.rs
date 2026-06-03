@@ -100,19 +100,20 @@ impl CrowdfundContract {
         total_raised
     }
 
-    pub fn get_status(env: Env) -> Vec<u32> {
+    pub fn get_status(env: Env) -> Vec<u64> {
         let target: u32 = env.storage().instance().get(&TARGET).unwrap_or(0);
         let deadline: u64 = env.storage().instance().get(&DEADLINE).unwrap_or(0);
         let total_raised: u32 = env.storage().instance().get(&TOTAL_RAISED).unwrap_or(0);
         let claimed: bool = env.storage().instance().get(&CLAIMED).unwrap_or(false);
         let ledger_time: u64 = env.ledger().timestamp();
 
-        let deadline_passed: u32 = if ledger_time > deadline { 1 } else { 0 };
-        let is_claimed: u32 = if claimed { 1 } else { 0 };
+        let deadline_passed: u64 = if ledger_time > deadline { 1 } else { 0 };
+        let is_claimed: u64 = if claimed { 1 } else { 0 };
 
-        let mut res: Vec<u32> = Vec::new(&env);
-        res.push_back(total_raised);
-        res.push_back(target);
+        let mut res: Vec<u64> = Vec::new(&env);
+        res.push_back(total_raised as u64);
+        res.push_back(target as u64);
+        res.push_back(deadline);
         res.push_back(deadline_passed);
         res.push_back(is_claimed);
         res

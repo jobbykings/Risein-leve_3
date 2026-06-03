@@ -34,7 +34,7 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CAWEYJTWBGTN32GTF7GOJZIUCAD33M7EUDZCVBHSKKNYE5ZQS4GGLG5D",
+    contractId: "CCLJ4FEXKXEZKS6UCROBEKLIVDOPFVP6Z75QS3AV5CUS2WAM3EBQNL7W",
   }
 } as const
 
@@ -54,7 +54,7 @@ export interface Client {
   /**
    * Construct and simulate a get_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_status: (options?: MethodOptions) => Promise<AssembledTransaction<Array<u32>>>
+  get_status: (options?: MethodOptions) => Promise<AssembledTransaction<Array<u64>>>
 
   /**
    * Construct and simulate a initialize transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -83,7 +83,7 @@ export class Client extends ContractClient {
         "AAAABQAAAAAAAAAAAAAACkNsYWltRXZlbnQAAAAAAAEAAAALY2xhaW1fZXZlbnQAAAAAAwAAAAAAAAAGY2FsbGVyAAAAAAATAAAAAAAAAAAAAAAMdG90YWxfcmFpc2VkAAAABAAAAAAAAAAAAAAABnRhcmdldAAAAAAABAAAAAAAAAAC",
         "AAAAAAAAAAAAAAAEZnVuZAAAAAIAAAAAAAAABWRvbm9yAAAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAAEAAAAAQAAAAQ=",
         "AAAAAAAAAAAAAAAFY2xhaW0AAAAAAAABAAAAAAAAAAZjYWxsZXIAAAAAABMAAAABAAAABA==",
-        "AAAAAAAAAAAAAAAKZ2V0X3N0YXR1cwAAAAAAAAAAAAEAAAPqAAAABA==",
+        "AAAAAAAAAAAAAAAKZ2V0X3N0YXR1cwAAAAAAAAAAAAEAAAPqAAAABg==",
         "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAgAAAAAAAAAGdGFyZ2V0AAAAAAAEAAAAAAAAAAhkZWFkbGluZQAAAAYAAAAA" ]),
       options
     )
@@ -91,7 +91,7 @@ export class Client extends ContractClient {
   public readonly fromJSON = {
     fund: this.txFromJSON<u32>,
         claim: this.txFromJSON<u32>,
-        get_status: this.txFromJSON<Array<u32>>,
+        get_status: this.txFromJSON<Array<u64>>,
         initialize: this.txFromJSON<null>
   }
 }
