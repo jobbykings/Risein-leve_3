@@ -19,7 +19,8 @@ import type { CampaignState, TxState } from "@/types";
 import { UserRejected, InsufficientFunds } from "@/utils/errors";
 
 const MODULES = [new FreighterModule(), new xBullModule(), new AlbedoModule()];
-const RPC_URL = "https://soroban-testnet.stellar.org";
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://soroban-testnet.stellar.org";
+const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID || networks.testnet.contractId;
 const CACHE_KEY = "crowdfund_campaign";
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -96,7 +97,7 @@ export function CrowdfundProvider({ children }: { children: ReactNode }) {
     }
 
     const client = new Client({
-      contractId: networks.testnet.contractId,
+      contractId: CONTRACT_ID,
       networkPassphrase: networks.testnet.networkPassphrase,
       rpcUrl: RPC_URL,
       publicKey: address,
@@ -126,7 +127,12 @@ export function CrowdfundProvider({ children }: { children: ReactNode }) {
       };
       setCampaign(data);
       saveCache(data);
-    } catch {
+    } catch (err) {
+      console.error("Soroban Fetch Error:", err);
+      try {
+        localStorage.removeItem(CACHE_KEY);
+      } catch {
+      }
     } finally {
       setCampaignLoading(false);
     }
