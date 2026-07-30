@@ -18,6 +18,7 @@ export default function Home() {
     txState,
     explorerUrl,
     contribute,
+    claimFunds,
     refreshCampaign,
     resetTx,
   } = useCrowdfund();
@@ -97,10 +98,76 @@ export default function Home() {
             <CountdownTimer deadlineTimestamp={campaign.deadlineTimestamp} />
           </div>
 
-          <ContributeForm
-            txStatus={txState.status}
-            onContribute={contribute}
-          />
+          {(() => {
+            const now = Math.floor(Date.now() / 1000);
+            const deadlinePassed = now > campaign.deadlineTimestamp;
+            const targetMet = campaign.totalRaised >= campaign.target;
+            const canClaim = deadlinePassed && targetMet && !campaign.isClaimed;
+            const isClaimPending =
+              txState.status === "awaiting_approval" ||
+              txState.status === "validating";
+
+            if (campaign.isClaimed) {
+              return (
+                <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center shadow-sm">
+                  <svg className="mx-auto mb-2 h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-lg font-semibold text-green-800">Campaign Completed</p>
+                  <p className="mt-1 text-sm text-green-600">
+                    Funds have been claimed.
+                  </p>
+                </div>
+              );
+            }
+
+            if (canClaim) {
+              return (
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-6 shadow-sm">
+                  <h3 className="mb-2 text-lg font-semibold text-yellow-800">
+                    Campaign Target Reached!
+                  </h3>
+                  <p className="mb-4 text-sm text-yellow-700">
+                    The deadline has passed and the target has been met. Claim the
+                    raised funds.
+                  </p>
+                  <button
+                    onClick={claimFunds}
+                    disabled={isClaimPending}
+                    className="rounded-lg bg-yellow-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isClaimPending ? "Claiming..." : "Claim Funds"}
+                  </button>
+                </div>
+              );
+            }
+
+            if (deadlinePassed && !targetMet) {
+              return (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
+                  <svg className="mx-auto mb-2 h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <p className="text-lg font-semibold text-red-800">Campaign Failed</p>
+                  <p className="mt-1 text-sm text-red-600">
+                    The deadline passed without reaching the target.
+                  </p>
+                </div>
+              );
+            }
+
+            return null;
+          })()}
+
+          {!(() => {
+            const now = Math.floor(Date.now() / 1000);
+            return now > campaign.deadlineTimestamp;
+          })() && (
+            <ContributeForm
+              txStatus={txState.status}
+              onContribute={contribute}
+            />
+          )}
 
           <TransactionAlert
             status={txState.status === "success" ? "success" : txState.status === "failure" ? "failure" : null}

@@ -6,6 +6,43 @@ use soroban_sdk::{
     IntoVal,
 };
 
+// ---------------------------------------------------------------------------
+// Initialization
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_initialize_sets_state() {
+    let env = Env::default();
+    env.ledger().set_timestamp(1000);
+
+    let contract_id = env.register(CrowdfundContract, ());
+    let client = CrowdfundContractClient::new(&env, &contract_id);
+
+    client.initialize(&1000u32, &5000u64);
+
+    let status = client.get_status();
+    assert_eq!(status.get(0).unwrap(), 0);   // total_raised
+    assert_eq!(status.get(1).unwrap(), 1000); // target
+    assert_eq!(status.get(2).unwrap(), 5000); // deadline
+}
+
+#[test]
+#[should_panic(expected = "Campaign already initialized")]
+fn test_double_initialize_panics() {
+    let env = Env::default();
+    env.ledger().set_timestamp(1000);
+
+    let contract_id = env.register(CrowdfundContract, ());
+    let client = CrowdfundContractClient::new(&env, &contract_id);
+
+    client.initialize(&1000u32, &5000u64);
+    client.initialize(&2000u32, &6000u64);
+}
+
+// ---------------------------------------------------------------------------
+// Funding
+// ---------------------------------------------------------------------------
+
 #[test]
 fn test_contribution_tracking() {
     let env = Env::default();
@@ -184,4 +221,46 @@ fn test_fund_after_deadline_panics() {
     client
         .mock_auths(&[MockAuth { address: &donor, invoke: &invoke }])
         .fund(&donor, &100u32);
+}
+
+// ---------------------------------------------------------------------------
+// Claim
+// ---------------------------------------------------------------------------
+
+#[test]
+#[should_panic(expected = "Target goal was not reached")]
+fn test_claim_when_target_not_met_panics() {
+    let env = Env::default();
+    env.ledger().set_timestamp(1000);
+
+    let contract_id = env.register(CrowdfundContract, ());
+    let client = CrowdfundContractClient::new(&env, &contract_id);
+
+    // Target = 1000, only raise 300 — below target
+    client.initialize(&1000u32, &2000u64);
+
+    let donor = Address::generate(&env);
+    let fund_invoke = MockAuthInvoke {
+        contract: &contract_id,
+        fn_name: "fund",
+        args: (donor.clone(), 300u32).into_val(&env),
+        sub_invokes: &[],
+    };
+    client
+        .mock_auths(&[MockAuth { address: &donor, invoke: &fund_invoke }])
+        .fund(&donor, &300u32);
+
+    // Advance past deadline
+    env.ledger().set_timestamp(3000);
+
+    let caller = Address::generate(&env);
+    let claim_invoke = MockAuthInvoke {
+        contract: &contract_id,
+        fn_name: "claim",
+        args: (caller.clone(),).into_val(&env),
+        sub_invokes: &[],
+    };
+    client
+        .mock_auths(&[MockAuth { address: &caller, invoke: &claim_invoke }])
+        .claim(&caller);
 }

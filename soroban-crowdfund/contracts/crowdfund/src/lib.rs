@@ -1,11 +1,19 @@
 #![no_std]
 use soroban_sdk::{contract, contractevent, contractimpl, symbol_short, Address, Env, Symbol, Vec};
 
+// ---------------------------------------------------------------------------
+// Storage keys
+// ---------------------------------------------------------------------------
 const TARGET: Symbol = symbol_short!("TARGET");
 const DEADLINE: Symbol = symbol_short!("DLINE");
 const TOTAL_RAISED: Symbol = symbol_short!("TOTAL");
 const CLAIMED: Symbol = symbol_short!("CLAIM");
 
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+/// Emitted every time a contribution is made.
 #[contractevent]
 pub struct FundEvent {
     pub donor: Address,
@@ -14,6 +22,7 @@ pub struct FundEvent {
     pub target: u32,
 }
 
+/// Emitted when the campaign creator successfully claims the raised funds.
 #[contractevent]
 pub struct ClaimEvent {
     pub caller: Address,
@@ -21,11 +30,19 @@ pub struct ClaimEvent {
     pub target: u32,
 }
 
+// ---------------------------------------------------------------------------
+// Contract
+// ---------------------------------------------------------------------------
+
 #[contract]
 pub struct CrowdfundContract;
 
 #[contractimpl]
 impl CrowdfundContract {
+    /// Initialise the crowdfund campaign with a funding `target` (in stroops)
+    /// and a Unix-second `deadline` (ledger timestamp).
+    ///
+    /// Can only be called once — panics if the campaign was already initialised.
     pub fn initialize(env: Env, target: u32, deadline: u64) {
         if env.storage().instance().has(&TARGET) {
             panic!("Campaign already initialized");
@@ -36,6 +53,10 @@ impl CrowdfundContract {
         env.storage().instance().set(&CLAIMED, &false);
     }
 
+    /// Contribute `amount` (stroops) to the campaign.  Returns the new total
+    /// raised.  Requires authorisation from `donor`.
+    ///
+    /// Panics if the deadline has already passed.
     pub fn fund(env: Env, donor: Address, amount: u32) -> u32 {
         donor.require_auth();
 
@@ -67,6 +88,14 @@ impl CrowdfundContract {
         total_raised
     }
 
+    /// Claim the raised funds once the deadline has passed **and** the target
+    /// has been reached.  Any address may call this function (only one claim
+    /// is allowed).
+    ///
+    /// Panics if:
+    /// - The deadline has not yet passed.
+    /// - The total raised is below the target.
+    /// - Funds were already claimed.
     pub fn claim(env: Env, caller: Address) -> u32 {
         caller.require_auth();
 
@@ -100,6 +129,14 @@ impl CrowdfundContract {
         total_raised
     }
 
+    /// Read the current campaign status.
+    ///
+    /// Returns a 5-element vector:
+    ///   [0] total_raised (as u64)
+    ///   [1] target       (as u64)
+    ///   [2] deadline     (unix seconds)
+    ///   [3] deadline_passed (1 = yes, 0 = no)
+    ///   [4] is_claimed      (1 = yes, 0 = no)
     pub fn get_status(env: Env) -> Vec<u64> {
         let target: u32 = env.storage().instance().get(&TARGET).unwrap_or(0);
         let deadline: u64 = env.storage().instance().get(&DEADLINE).unwrap_or(0);
@@ -121,3 +158,4 @@ impl CrowdfundContract {
 }
 
 mod test;
+

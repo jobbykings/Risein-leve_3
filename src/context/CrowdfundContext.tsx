@@ -39,6 +39,7 @@ export interface CrowdfundContextValue {
   txState: TxState;
   explorerUrl: string | null;
   contribute: (amount: number) => Promise<void>;
+  claimFunds: () => Promise<void>;
   refreshCampaign: () => Promise<void>;
   resetTx: () => void;
 }
@@ -207,6 +208,50 @@ export function CrowdfundProvider({ children }: { children: ReactNode }) {
     [address, refreshCampaign]
   );
 
+  const claimFunds = useCallback(
+    async () => {
+      const client = clientRef.current;
+      if (!client || !address) return;
+
+      setTxState({ status: "awaiting_approval", hash: null, error: null });
+
+      try {
+        const tx = await client.claim({ caller: address });
+        setTxState({ status: "validating", hash: null, error: null });
+
+        const sent = await tx.signAndSend();
+        const hash = sent.sendTransactionResponse?.hash;
+
+        if (!hash) throw new Error("No transaction hash returned");
+
+        setTxState({ status: "success", hash, error: null });
+        await refreshCampaign();
+      } catch (err: unknown) {
+        let mapped: Error;
+
+        if (err instanceof Error) {
+          const msg = err.message.toLowerCase();
+
+          if (
+            msg.includes("user declined") ||
+            msg.includes("cancel") ||
+            msg.includes("reject") ||
+            msg.includes("UserRejected")
+          ) {
+            mapped = new UserRejected();
+          } else {
+            mapped = err;
+          }
+        } else {
+          mapped = new Error("An unknown error occurred");
+        }
+
+        setTxState({ status: "failure", hash: null, error: mapped.message });
+      }
+    },
+    [address, refreshCampaign]
+  );
+
   const explorerUrl = txState.hash
     ? `https://stellar.expert/explorer/testnet/tx/${txState.hash}`
     : null;
@@ -223,6 +268,7 @@ export function CrowdfundProvider({ children }: { children: ReactNode }) {
         txState,
         explorerUrl,
         contribute,
+        claimFunds,
         refreshCampaign,
         resetTx,
       }}
