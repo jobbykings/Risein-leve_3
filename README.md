@@ -2,6 +2,7 @@
 
 A Soroban smart contract crowdfunding campaign with a React/Next.js frontend, deployed on Stellar Testnet.
 
+- **Live App:** https://risein-leve-3-m85obpmpr-jobby2.vercel.app
 - **Smart Contract (Testnet):** `CDAZNHHPR7N72EXUOE2Y6GEVEPE2ZWV4G7NVHPKYWP63YTYHHRZZOKMV`
 - **Explorer Link:** https://stellar.expert/explorer/testnet/contract/CDAZNHHPR7N72EXUOE2Y6GEVEPE2ZWV4G7NVHPKYWP63YTYHHRZZOKMV
 - **Stack:** Soroban (Rust), Next.js, Tailwind CSS, `@creit.tech/stellar-wallets-kit`
