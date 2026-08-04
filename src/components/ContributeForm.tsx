@@ -41,7 +41,7 @@ export default function ContributeForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">Contribute</h3>
 
       {isPending && statusLabel && (
@@ -54,7 +54,7 @@ export default function ContributeForm({
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <input
           type="number"
           min="1"
@@ -62,12 +62,12 @@ export default function ContributeForm({
           onChange={(e) => setAmount(e.target.value)}
           placeholder="Amount (XLM)"
           disabled={isPending}
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={isPending || (isConnected && !amount)}
-          className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {isPending
             ? "Contributing..."

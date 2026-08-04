@@ -40,9 +40,9 @@ export default function Home() {
     `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
+    <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+        <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
           Crowdfund Campaign
         </h1>
 
@@ -104,11 +104,11 @@ export default function Home() {
         </div>
       ) : campaign ? (
         <div className="space-y-6">
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <ProgressBar current={campaign.totalRaised} target={campaign.target} />
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <CountdownTimer deadlineTimestamp={campaign.deadlineTimestamp} />
           </div>
 
@@ -136,7 +136,7 @@ export default function Home() {
 
             if (canClaim) {
               return (
-                <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-6 shadow-sm">
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 shadow-sm sm:p-6">
                   <h3 className="mb-2 text-lg font-semibold text-yellow-800">
                     Campaign Target Reached!
                   </h3>

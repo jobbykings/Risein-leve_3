@@ -34,7 +34,7 @@ export default function CountdownTimer({ deadlineTimestamp }: CountdownTimerProp
   return (
     <div className="text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Time Remaining</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">{remaining}</p>
+      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 sm:text-2xl">{remaining}</p>
     </div>
   );
 }

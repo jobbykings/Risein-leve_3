@@ -10,7 +10,7 @@ export default function ProgressBar({ current, target }: ProgressBarProps) {
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-between text-sm">
+      <div className="flex flex-wrap justify-between gap-1 text-sm">
         <span className="font-medium text-gray-700">
           {current.toLocaleString()} / {target.toLocaleString()} XLM
         </span>
