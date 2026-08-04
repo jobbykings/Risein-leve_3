@@ -17,6 +17,8 @@ export default function Home() {
     campaignLoading,
     txState,
     explorerUrl,
+    live,
+    liveEventCount,
     contribute,
     claimFunds,
     refreshCampaign,
@@ -32,18 +34,29 @@ export default function Home() {
     [handleConnected],
   );
 
+  const openWalletModal = useCallback(() => setModalOpen(true), []);
+
   const formatAddress = (addr: string) =>
     `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">
           Crowdfund Campaign
         </h1>
 
         {address ? (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {live && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                </span>
+                Live{liveEventCount > 0 && ` · ${liveEventCount} new`}
+              </span>
+            )}
             <span className="rounded-full bg-indigo-100 px-4 py-1.5 font-mono text-sm text-indigo-700">
               {formatAddress(address)}
             </span>
@@ -54,33 +67,34 @@ export default function Home() {
               Disconnect
             </button>
             <button
-              onClick={refreshCampaign}
+              onClick={() => refreshCampaign()}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
             >
               Refresh
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setModalOpen(true)}
-            className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-          >
-            Connect Wallet
-          </button>
+          <div className="flex items-center gap-3">
+            {live && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                </span>
+                Live{liveEventCount > 0 && ` · ${liveEventCount} new`}
+              </span>
+            )}
+            <button
+              onClick={openWalletModal}
+              className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              Connect Wallet
+            </button>
+          </div>
         )}
       </div>
 
-      {!address ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20 text-center">
-          <svg className="mb-4 h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
-          </svg>
-          <p className="text-lg font-medium text-gray-900">Connect your Stellar wallet</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Use Freighter, xBull, or Albedo to contribute.
-          </p>
-        </div>
-      ) : campaignLoading ? (
+      {campaignLoading ? (
         <div className="flex flex-col items-center py-20">
           <svg className="mb-4 h-8 w-8 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -99,8 +113,7 @@ export default function Home() {
           </div>
 
           {(() => {
-            const now = Math.floor(Date.now() / 1000);
-            const deadlinePassed = now > campaign.deadlineTimestamp;
+            const deadlinePassed = campaign.deadlinePassed;
             const targetMet = campaign.totalRaised >= campaign.target;
             const canClaim = deadlinePassed && targetMet && !campaign.isClaimed;
             const isClaimPending =
@@ -132,11 +145,15 @@ export default function Home() {
                     raised funds.
                   </p>
                   <button
-                    onClick={claimFunds}
-                    disabled={isClaimPending}
+                    onClick={address ? claimFunds : openWalletModal}
+                    disabled={address ? isClaimPending : false}
                     className="rounded-lg bg-yellow-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isClaimPending ? "Claiming..." : "Claim Funds"}
+                    {address
+                      ? isClaimPending
+                        ? "Claiming..."
+                        : "Claim Funds"
+                      : "Connect to Claim"}
                   </button>
                 </div>
               );
@@ -159,12 +176,11 @@ export default function Home() {
             return null;
           })()}
 
-          {!(() => {
-            const now = Math.floor(Date.now() / 1000);
-            return now > campaign.deadlineTimestamp;
-          })() && (
+          {!campaign.deadlinePassed && (
             <ContributeForm
               txStatus={txState.status}
+              isConnected={!!address}
+              onConnect={openWalletModal}
               onContribute={contribute}
             />
           )}

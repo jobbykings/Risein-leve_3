@@ -82,6 +82,7 @@ export default function WalletModal({ isOpen, onClose, onConnect }: WalletModalP
                       : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50"
                   } ${isLoading ? "animate-pulse" : ""}`}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- wallet icons are external dynamic URLs from the wallets kit, so next/image remote patterns can't be configured for them */}
                   <img src={wallet.icon} alt={wallet.name} className="h-8 w-8 rounded-full" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{wallet.name}</p>

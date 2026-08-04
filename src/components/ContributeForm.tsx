@@ -5,7 +5,9 @@ import type { TxStatus } from "@/types";
 
 interface ContributeFormProps {
   txStatus: TxStatus;
+  isConnected: boolean;
   onContribute: (amount: number) => Promise<void>;
+  onConnect: () => void;
 }
 
 const STATUS_LABELS: Record<TxStatus, string | null> = {
@@ -16,13 +18,22 @@ const STATUS_LABELS: Record<TxStatus, string | null> = {
   failure: null,
 };
 
-export default function ContributeForm({ txStatus, onContribute }: ContributeFormProps) {
+export default function ContributeForm({
+  txStatus,
+  isConnected,
+  onContribute,
+  onConnect,
+}: ContributeFormProps) {
   const [amount, setAmount] = useState("");
   const isPending = txStatus === "awaiting_approval" || txStatus === "validating";
   const statusLabel = STATUS_LABELS[txStatus];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isConnected) {
+      onConnect();
+      return;
+    }
     const parsed = parseInt(amount, 10);
     if (isNaN(parsed) || parsed <= 0) return;
     await onContribute(parsed);
@@ -55,10 +66,14 @@ export default function ContributeForm({ txStatus, onContribute }: ContributeFor
         />
         <button
           type="submit"
-          disabled={isPending || !amount}
+          disabled={isPending || (isConnected && !amount)}
           className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isPending ? "Contributing..." : "Contribute"}
+          {isPending
+            ? "Contributing..."
+            : isConnected
+              ? "Contribute"
+              : "Connect to Contribute"}
         </button>
       </div>
     </form>

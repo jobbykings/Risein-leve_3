@@ -1,5 +1,8 @@
 #![no_std]
-use soroban_sdk::{contract, contractevent, contractimpl, symbol_short, Address, Env, Symbol, Vec};
+use soroban_sdk::{
+    contract, contracterror, contractevent, contractimpl, symbol_short, token::TokenClient,
+    Address, Env, Symbol, Vec,
+};
 
 // ---------------------------------------------------------------------------
 // Storage keys
@@ -8,6 +11,30 @@ const TARGET: Symbol = symbol_short!("TARGET");
 const DEADLINE: Symbol = symbol_short!("DLINE");
 const TOTAL_RAISED: Symbol = symbol_short!("TOTAL");
 const CLAIMED: Symbol = symbol_short!("CLAIM");
+const BENEFICIARY: Symbol = symbol_short!("BENEF");
+const TOKEN: Symbol = symbol_short!("TOKEN");
+
+/// Native XLM multiplier: 1 XLM = 10_000_000 stroops.
+pub const STROOPS_PER_XLM: i128 = 10_000_000;
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
+/// Typed contract errors returned instead of panicking.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum CrowdfundError {
+    NotInitialized = 0,
+    AlreadyInitialized = 1,
+    DeadlinePassed = 2,
+    DeadlineNotPassed = 3,
+    TargetNotMet = 4,
+    AlreadyClaimed = 5,
+    InvalidAmount = 6,
+    Overflow = 7,
+    NoFunds = 8,
+}
 
 // ---------------------------------------------------------------------------
 // Events
@@ -17,17 +44,19 @@ const CLAIMED: Symbol = symbol_short!("CLAIM");
 #[contractevent]
 pub struct FundEvent {
     pub donor: Address,
-    pub amount: u32,
-    pub total_raised: u32,
-    pub target: u32,
+    pub amount: i128,
+    pub total_raised: i128,
+    pub target: i128,
 }
 
-/// Emitted when the campaign creator successfully claims the raised funds.
+/// Emitted when the campaign funds are paid out to the beneficiary.
 #[contractevent]
 pub struct ClaimEvent {
     pub caller: Address,
-    pub total_raised: u32,
-    pub target: u32,
+    pub beneficiary: Address,
+    pub amount: i128,
+    pub total_raised: i128,
+    pub target: i128,
 }
 
 // ---------------------------------------------------------------------------
@@ -37,96 +66,154 @@ pub struct ClaimEvent {
 #[contract]
 pub struct CrowdfundContract;
 
+/// Returns a client for the campaign's configured token contract.
+///
+/// The token is the Stellar Asset Contract (SAC) for the currency the campaign
+/// accepts — for this app it is the native XLM SAC, resolved by the deployer.
+/// All transfers below are cross-contract calls to that token contract.
+fn token_client(env: &Env) -> TokenClient<'_> {
+    let token: Address = env
+        .storage()
+        .instance()
+        .get(&TOKEN)
+        .expect("campaign token not initialized");
+    TokenClient::new(env, &token)
+}
+
 #[contractimpl]
 impl CrowdfundContract {
-    /// Initialise the crowdfund campaign with a funding `target` (in stroops)
-    /// and a Unix-second `deadline` (ledger timestamp).
+    /// Initialise the crowdfund campaign with a funding `target` (in stroops),
+    /// a Unix-second `deadline` (ledger timestamp), the `beneficiary` address
+    /// that receives the raised funds on claim, and the `token` (SAC) address
+    /// that the campaign accepts (native XLM for this app).
     ///
-    /// Can only be called once — panics if the campaign was already initialised.
-    pub fn initialize(env: Env, target: u32, deadline: u64) {
+    /// Can only be called once — returns [`CrowdfundError::AlreadyInitialized`]
+    /// if the campaign was already initialised.
+    pub fn initialize(
+        env: Env,
+        target: i128,
+        deadline: u64,
+        beneficiary: Address,
+        token: Address,
+    ) -> Result<(), CrowdfundError> {
         if env.storage().instance().has(&TARGET) {
-            panic!("Campaign already initialized");
+            return Err(CrowdfundError::AlreadyInitialized);
+        }
+        if target <= 0 {
+            return Err(CrowdfundError::InvalidAmount);
         }
         env.storage().instance().set(&TARGET, &target);
         env.storage().instance().set(&DEADLINE, &deadline);
-        env.storage().instance().set(&TOTAL_RAISED, &0u32);
+        env.storage().instance().set(&TOTAL_RAISED, &0i128);
         env.storage().instance().set(&CLAIMED, &false);
+        env.storage().instance().set(&BENEFICIARY, &beneficiary);
+        env.storage().instance().set(&TOKEN, &token);
+        Ok(())
     }
 
-    /// Contribute `amount` (stroops) to the campaign.  Returns the new total
-    /// raised.  Requires authorisation from `donor`.
+    /// Contribute `amount` (stroops) to the campaign. Transfers real XLM from
+    /// the `donor` to this contract via the configured Stellar Asset Contract
+    /// (an inter-contract call). Returns the new total raised.
     ///
-    /// Panics if the deadline has already passed.
-    pub fn fund(env: Env, donor: Address, amount: u32) -> u32 {
+    /// Requires authorisation from `donor`.
+    pub fn fund(env: Env, donor: Address, amount: i128) -> Result<i128, CrowdfundError> {
         donor.require_auth();
 
-        let target: u32 = env.storage().instance().get(&TARGET).unwrap();
-        let deadline: u64 = env.storage().instance().get(&DEADLINE).unwrap();
-        let ledger_time: u64 = env.ledger().timestamp();
+        let target: i128 = env
+            .storage()
+            .instance()
+            .get(&TARGET)
+            .ok_or(CrowdfundError::NotInitialized)?;
+        let deadline: u64 = env
+            .storage()
+            .instance()
+            .get(&DEADLINE)
+            .ok_or(CrowdfundError::NotInitialized)?;
 
-        if ledger_time > deadline {
-            panic!("Campaign deadline has passed");
+        if env.ledger().timestamp() > deadline {
+            return Err(CrowdfundError::DeadlinePassed);
+        }
+        if amount <= 0 {
+            return Err(CrowdfundError::InvalidAmount);
         }
 
-        let mut total_raised: u32 = env.storage().instance().get(&TOTAL_RAISED).unwrap();
-        let mut donor_balance: u32 = env.storage().persistent().get(&donor).unwrap_or(0);
+        // Inter-contract call: move XLM from the donor into this contract.
+        token_client(&env).transfer(&donor, env.current_contract_address(), &amount);
 
-        donor_balance += amount;
-        total_raised += amount;
-
-        env.storage().persistent().set(&donor, &donor_balance);
-        env.storage().instance().set(&TOTAL_RAISED, &total_raised);
+        let total_raised: i128 = env.storage().instance().get(&TOTAL_RAISED).unwrap_or(0);
+        let new_total = total_raised
+            .checked_add(amount)
+            .ok_or(CrowdfundError::Overflow)?;
+        env.storage().instance().set(&TOTAL_RAISED, &new_total);
 
         FundEvent {
             donor: donor.clone(),
             amount,
-            total_raised,
+            total_raised: new_total,
             target,
         }
         .publish(&env);
 
-        total_raised
+        Ok(new_total)
     }
 
     /// Claim the raised funds once the deadline has passed **and** the target
-    /// has been reached.  Any address may call this function (only one claim
-    /// is allowed).
-    ///
-    /// Panics if:
-    /// - The deadline has not yet passed.
-    /// - The total raised is below the target.
-    /// - Funds were already claimed.
-    pub fn claim(env: Env, caller: Address) -> u32 {
+    /// has been reached. Pays out the contract's entire token balance to the
+    /// configured `beneficiary`. Any address may call this function (only one
+    /// claim is allowed).
+    pub fn claim(env: Env, caller: Address) -> Result<i128, CrowdfundError> {
         caller.require_auth();
 
-        let target: u32 = env.storage().instance().get(&TARGET).unwrap();
-        let deadline: u64 = env.storage().instance().get(&DEADLINE).unwrap();
-        let total_raised: u32 = env.storage().instance().get(&TOTAL_RAISED).unwrap();
+        let target: i128 = env
+            .storage()
+            .instance()
+            .get(&TARGET)
+            .ok_or(CrowdfundError::NotInitialized)?;
+        let deadline: u64 = env
+            .storage()
+            .instance()
+            .get(&DEADLINE)
+            .ok_or(CrowdfundError::NotInitialized)?;
+        let total_raised: i128 = env.storage().instance().get(&TOTAL_RAISED).unwrap_or(0);
         let claimed: bool = env.storage().instance().get(&CLAIMED).unwrap_or(false);
+        let beneficiary: Address = env
+            .storage()
+            .instance()
+            .get(&BENEFICIARY)
+            .ok_or(CrowdfundError::NotInitialized)?;
         let ledger_time: u64 = env.ledger().timestamp();
 
         if ledger_time <= deadline {
-            panic!("Campaign deadline has not yet passed");
+            return Err(CrowdfundError::DeadlineNotPassed);
         }
-
         if total_raised < target {
-            panic!("Target goal was not reached");
+            return Err(CrowdfundError::TargetNotMet);
+        }
+        if claimed {
+            return Err(CrowdfundError::AlreadyClaimed);
         }
 
-        if claimed {
-            panic!("Funds have already been claimed");
+        let token = token_client(&env);
+        let balance = token.balance(&env.current_contract_address());
+        if balance <= 0 {
+            return Err(CrowdfundError::NoFunds);
         }
+
+        // Inter-contract call: pay out the full balance to the beneficiary.
+        token.transfer(&env.current_contract_address(), &beneficiary, &balance);
 
         env.storage().instance().set(&CLAIMED, &true);
 
         ClaimEvent {
             caller: caller.clone(),
+            beneficiary: beneficiary.clone(),
+            amount: balance,
             total_raised,
             target,
         }
         .publish(&env);
 
-        total_raised
+        Ok(balance)
     }
 
     /// Read the current campaign status.
@@ -138,9 +225,9 @@ impl CrowdfundContract {
     ///   [3] deadline_passed (1 = yes, 0 = no)
     ///   [4] is_claimed      (1 = yes, 0 = no)
     pub fn get_status(env: Env) -> Vec<u64> {
-        let target: u32 = env.storage().instance().get(&TARGET).unwrap_or(0);
+        let target: i128 = env.storage().instance().get(&TARGET).unwrap_or(0);
         let deadline: u64 = env.storage().instance().get(&DEADLINE).unwrap_or(0);
-        let total_raised: u32 = env.storage().instance().get(&TOTAL_RAISED).unwrap_or(0);
+        let total_raised: i128 = env.storage().instance().get(&TOTAL_RAISED).unwrap_or(0);
         let claimed: bool = env.storage().instance().get(&CLAIMED).unwrap_or(false);
         let ledger_time: u64 = env.ledger().timestamp();
 
@@ -158,4 +245,3 @@ impl CrowdfundContract {
 }
 
 mod test;
-

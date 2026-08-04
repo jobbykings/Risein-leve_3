@@ -17,10 +17,15 @@ export default function ProgressBar({ current, target }: ProgressBarProps) {
         <span className="font-semibold text-indigo-600">{pct.toFixed(1)}%</span>
       </div>
       <div className="h-5 w-full overflow-hidden rounded-full bg-gray-100">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-green-500 transition-all duration-700"
-          style={{ width: `${pct}%` }}
-        />
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-green-500 transition-all duration-700"
+        role="progressbar"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Campaign funding progress"
+        style={{ width: `${pct}%` }}
+      />
       </div>
     </div>
   );
